@@ -87,7 +87,7 @@ namespace HelloMarioFramework
         }
 
         //Dissapear after stomp
-        protected IEnumerator Stomp(Player p)
+        public  IEnumerator Stomp(Player p)
         {
             stomped = true;
             WhenStomped();

@@ -45,6 +45,10 @@ namespace HelloMarioFramework
         private InputActionReference crouchAction;
         [SerializeField]
         private InputActionReference movementAction;
+		
+		//mele
+		[SerializeField]
+        private InputActionReference meleeAttackAction;
 
         //Death y value
         [SerializeField]
@@ -104,6 +108,7 @@ namespace HelloMarioFramework
         private static int jumpHash = Animator.StringToHash("Jump");
         private static int wallJumpHash = Animator.StringToHash("WallJump");
         private static int wallPushHash = Animator.StringToHash("WallPush");
+		
 
         //Button checker
         private bool jumpDown = false;
@@ -199,6 +204,8 @@ namespace HelloMarioFramework
             myRigidBody.freezeRotation = true;
 
             if (zAxisLock) zLockValue = transform.position.z;
+			
+			  meleeAttackAction.action.Enable(); // Añade esta línea
         }
 
         //Plysics update
@@ -209,6 +216,14 @@ namespace HelloMarioFramework
             if (jumpAction.action.IsPressed() && !jumpDown) jumpPress = true;
             if (!jumpAction.action.IsPressed() && jumpDown) jumpRelease = true;
             if (crouchAction.action.IsPressed() && !crouchDown) crouchPress = true;
+			
+			  // Ahora usamos la nueva InputActionReference
+            if (meleeAttackAction.action.WasPressedThisFrame())
+            {
+                Debug.Log("¡Tecla Q presionada (Input System)!");
+                // Aquí llamaremos a la función para el ataque
+                PerformMeleeAttack();
+            }
 
             //Remember previous values
             jumpDown = jumpAction.action.IsPressed();
@@ -528,6 +543,62 @@ namespace HelloMarioFramework
         void OnCollisionEnter(Collision collision)
         {
             OnCollisionStay(collision);
+        }
+		
+		void PerformMeleeAttack()
+        {
+            Debug.Log("¡Realizando ataque cuerpo a cuerpo!");
+
+            // 1. Define el radio de ataque
+            float attackRadius = 1.5f;
+
+            // 2. Busca colliders de enemigos cercanos
+            Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRadius);
+
+            foreach (var hitCollider in hitColliders)
+            {
+                // 3. Intenta obtener el componente PesoEnemigo y Rigidbody
+                PesoEnemigo pesoEnemigo = hitCollider.GetComponent<PesoEnemigo>();
+                Rigidbody enemyRigidbody = hitCollider.GetComponent<Rigidbody>();
+
+                // 4. Si el enemigo tiene el componente PesoEnemigo (y por lo tanto Rigidbody)
+                if (pesoEnemigo != null && enemyRigidbody != null)
+                {
+                    Debug.Log("¡Enemigo encontrado: " + hitCollider.gameObject.name + "!");
+
+                    // Activa el trigger de animación "WallPush"
+                    animator.SetTrigger(wallPushHash);
+
+                    // Reduce la vida del enemigo
+                    pesoEnemigo.vida--;
+                    Debug.Log("Vida de " + hitCollider.gameObject.name + ": " + pesoEnemigo.vida);
+
+                    // Calcula la dirección del empuje
+                    Vector3 pushDirection = (hitCollider.transform.position - transform.position).normalized;
+
+                    // Calcula la fuerza de empuje basada en el peso
+                    float fuerzaEmpuje = 33f / pesoEnemigo.peso;
+
+                    // Aplica una fuerza para empujar al enemigo
+                    enemyRigidbody.AddForce(pushDirection * fuerzaEmpuje, ForceMode.Impulse);
+
+
+                     // Verifica si la vida del enemigo llegó a cero
+                    if (pesoEnemigo.vida <= 0)
+                    {
+                         Debug.Log(hitCollider.gameObject.name + " ha sido derrotado!");
+                           // Intenta obtener el script Stompable
+                         Stompable enemyScript = hitCollider.GetComponent<Stompable>();
+                         if (enemyScript != null)
+                        {
+                             StartCoroutine(enemyScript.Stomp(GetComponent<Player>())); // Llama a Stomp del enemigo
+                        }else {
+                           // Si no hay un script Enemy, es un error (por ahora)
+                            Debug.LogError("¡Enemigo con PesoEnemigo pero sin Stompable script!: " + hitCollider.gameObject.name);
+                         }
+                    }
+                 }
+            }
         }
 
         //Collision with rigid body
